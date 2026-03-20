@@ -1,16 +1,16 @@
 <?php
-// api/db_connection.php
+// backend/db_connection.php
 
 /**
  * Get database connection
- * 
- * @return PDO
+ * * @return PDO
  */
 function getDatabaseConnection() {
-    $host = 'update-me-host';      // Database host (change to your RDS endpoint in production)
-    $db_name = 'hello_world'; // Database name
-    $username = 'update-me-username';       // Database username
-    $password = 'update-me-password';           // Database password
+    // LOCALHOST SETTINGS - Change these to your AWS RDS endpoint when you deploy!
+    $host = 'localhost';           
+    $db_name = 'diagnostic_center'; // Updated from 'hello_world'
+    $username = 'admin';             // Default XAMPP username
+    $password = '';                 // Default XAMPP password
     
     $dsn = "mysql:host=$host;dbname=$db_name;charset=utf8mb4";
     $options = [
