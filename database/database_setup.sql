@@ -1,4 +1,4 @@
-CREATE DATABASE diagnostic_center;
+CREATE DATABASE IF NOT EXISTS diagnostic_center;
 USE diagnostic_center;
 
 CREATE TABLE patient_results (
