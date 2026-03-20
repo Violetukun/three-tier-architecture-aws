@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Online Results - Diagnostic Center</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        /* --- Global Reset & Typography --- */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background-color: #f8f9fa;
+            color: #333;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        a { text-decoration: none; color: inherit; }
+
+        /* --- Theme Colors --- */
+        :root {
+            --primary-yellow: #FFC107;
+            --primary-hover: #e0a800;
+            --dark-gray: #333;
+            --light-gray: #f4f4f4;
+            --error-red: #d9534f;
+        }
+
+        /* --- Header (Simplified for this page) --- */
+        header { background-color: white; padding: 15px 40px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); position: relative; z-index: 100;}
+        .header-content { display: flex; justify-content: space-between; align-items: center; max-width: 1400px; margin: 0 auto;}
+        .logo img { height: 50px; }
+        .back-link { font-weight: bold; color: var(--dark-gray); transition: color 0.2s; }
+        .back-link:hover { color: var(--primary-hover); }
+
+        /* --- Login Section Layout --- */
+        .login-wrapper {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            background: url('images/online-page-img.jpg') center/cover no-repeat;
+            position: relative;
+        }
+
+        /* Subtle overlay to ensure the white card pops */
+        .login-wrapper::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        .login-container {
+            position: relative;
+            z-index: 10;
+            width: 100%;
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 40px;
+        }
+
+        /* --- Login Card --- */
+        .login-card {
+            background-color: rgba(255, 255, 255, 0.95);
+            width: 100%;
+            max-width: 500px;
+            padding: 40px;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+            border-top: 5px solid var(--primary-yellow);
+        }
+
+        .login-card h2 {
+            color: var(--dark-gray);
+            font-size: 28px;
+            margin-bottom: 25px;
+        }
+
+        /* --- Form Elements --- */
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            font-weight: bold;
+            margin-bottom: 8px;
+            font-size: 14px;
+            color: var(--dark-gray);
+        }
+
+        .input-wrapper {
+            position: relative;
+        }
+
+        .input-wrapper i {
+            position: absolute;
+            left: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #888;
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 12px 15px 12px 40px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            font-size: 15px;
+            transition: border-color 0.3s;
+        }
+
+        .form-control:focus {
+            outline: none;
+            border-color: var(--primary-yellow);
+            box-shadow: 0 0 0 3px rgba(255, 193, 7, 0.2);
+        }
+
+        /* Password toggle icon */
+        .toggle-password {
+            position: absolute;
+            right: 15px;
+            left: auto !important;
+            cursor: pointer;
+            color: #888;
+        }
+        .toggle-password:hover { color: var(--dark-gray); }
+
+        /* Helper Text */
+        .helper-text {
+            display: block;
+            font-size: 12px;
+            color: #666;
+            margin-top: 6px;
+            line-height: 1.4;
+            background: #f9f9f9;
+            padding: 8px;
+            border-left: 3px solid var(--primary-yellow);
+            border-radius: 0 4px 4px 0;
+        }
+
+        /* --- Button --- */
+        .btn-submit {
+            width: 100%;
+            padding: 14px;
+            background-color: var(--primary-yellow);
+            color: var(--dark-gray);
+            border: none;
+            border-radius: 6px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            margin-top: 10px;
+            transition: background-color 0.2s;
+        }
+
+        .btn-submit:hover {
+            background-color: var(--primary-hover);
+        }
+
+        /* --- Support/Info Area --- */
+        .support-info {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #eee;
+            font-size: 13px;
+        }
+
+        .support-info h4 {
+            color: var(--error-red);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 10px;
+        }
+
+        .support-info p {
+            color: #555;
+            line-height: 1.5;
+            margin-bottom: 10px;
+        }
+
+        .support-link {
+            color: var(--dark-gray);
+            font-weight: bold;
+            text-decoration: underline;
+        }
+        .support-link:hover {
+            color: var(--primary-hover);
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .login-container { padding: 20px; }
+            .login-card { max-width: 100%; padding: 30px 20px; }
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="header-content">
+            <div class="logo">
+                <img src="https://placehold.co/300x80/ffffff/FFC107?text=Diagnostic+Logo" alt="Company Logo">
+            </div>
+            <a href="index.html" class="back-link"><i class="fa-solid fa-arrow-left"></i> Back to Home</a>
+        </div>
+    </header>
+
+    <div class="login-wrapper">
+        <div class="login-container">
+            
+            <div class="login-card">
+                <h2>View Patient Results</h2>
+                
+                <form action="../backend/login.php" method="POST">
+    
+    <div class="form-group">
+        <label for="refNumber">Reference Number *</label>
+        <div class="input-wrapper">
+            <i class="fa-solid fa-hashtag"></i>
+            <input type="text" id="refNumber" name="refNumber" class="form-control" placeholder="Enter your Reference Number" required>
+        </div>
+    </div>
+
+    <div class="form-group">
+        <label for="lastName">Last Name (Password) *</label>
+        <div class="input-wrapper">
+            <i class="fa-solid fa-user"></i>
+            <input type="password" id="lastName" name="lastName" class="form-control" placeholder="Enter your Last Name" required>
+            <i class="fa-solid fa-eye-slash toggle-password" onclick="togglePassword()"></i>
+        </div>
+        <span class="helper-text">...</span>
+    </div>
+
+    <button type="submit" class="btn-submit">View Results</button>
+</form>
+
+                <div class="support-info">
+                    <h4><i class="fa-solid fa-circle-info"></i> Having trouble logging in?</h4>
+                    <p>If you cannot remember your details or are having issues accessing your results, please contact our support team.</p>
+                    <p>Email us at: <a href="mailto:support@diagnostics.com" class="support-link">support@diagnostics.com</a></p>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function togglePassword() {
+            const passwordInput = document.getElementById('lastName');
+            const toggleIcon = document.querySelector('.toggle-password');
+            
+            if (passwordInput.type === 'password') {
+                passwordInput.type = 'text';
+                toggleIcon.classList.remove('fa-eye-slash');
+                toggleIcon.classList.add('fa-eye');
+            } else {
+                passwordInput.type = 'password';
+                toggleIcon.classList.remove('fa-eye');
+                toggleIcon.classList.add('fa-eye-slash');
+            }
+        }
+    </script>
+</body>
+</html>
