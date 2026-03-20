@@ -1,18 +1,14 @@
--- database_setup.sql
+CREATE DATABASE diagnostic_center;
+USE diagnostic_center;
 
--- Create database
-CREATE DATABASE IF NOT EXISTS hello_world;
-USE hello_world;
-
--- Create messages table
-CREATE TABLE IF NOT EXISTS messages (
+CREATE TABLE patient_results (
     id INT AUTO_INCREMENT PRIMARY KEY,
-    message VARCHAR(255) NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    reference_number VARCHAR(50) NOT NULL UNIQUE,
+    last_name VARCHAR(100) NOT NULL,
+    result_status VARCHAR(50) DEFAULT 'Pending',
+    result_file_path VARCHAR(255)
 );
 
--- Insert some initial data
-INSERT INTO messages (message) VALUES 
-('Hello from the database!'),
-('Welcome to our three-tier architecture demo'),
-('This is a simple example showing frontend, backend, and database');
+-- Insert a test patient so we can try logging in
+INSERT INTO patient_results (reference_number, last_name, result_status) 
+VALUES ('REF12345', 'DELAPENA', 'Available');
