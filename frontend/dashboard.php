@@ -21,7 +21,7 @@ $patientRef = $_SESSION['patient_ref'];
 
 // 3. THE MAGIC: FETCH REAL DATA FROM AWS RDS
 // We format the SQL date to match your "Oct 24, 2026" UI style
-$stmt = $pdo->prepare("
+$stmt = $conn->prepare("
     SELECT test_name, 
            DATE_FORMAT(exam_date, '%b %d, %Y') AS formatted_date, 
            result_status 
