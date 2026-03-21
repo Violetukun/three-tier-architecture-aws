@@ -1,24 +1,23 @@
 <?php
-// backend/db_connection.php
-
-/**
- * Get database connection
- * * @return PDO
- */
 function getDatabaseConnection() {
-    // LOCALHOST SETTINGS - Change these to your AWS RDS endpoint when you deploy!
-    $host = 'localhost';           
-    $db_name = 'diagnostic_center'; // Updated from 'hello_world'
-    $username = 'admin';             // Default XAMPP username
-    $password = '';                 // Default XAMPP password
-    
-    $dsn = "mysql:host=$host;dbname=$db_name;charset=utf8mb4";
+    // Replace with your actual RDS Endpoint
+    $host = 'diag-db-prod-XXXXXXXX.us-east-1.rds.amazonaws.com'; 
+    $db   = 'diagnostic_center';
+    $user = 'admin';
+    $pass = 'Diagnostic123!';
+    $charset = 'utf8mb4';
+
+    $dsn = "mysql:host=$host;dbname=$db;charset=$charset";
     $options = [
-        PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+        PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
         PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-        PDO::ATTR_EMULATE_PREPARES => false,
+        PDO::ATTR_EMULATE_PREPARES   => false,
     ];
-    
-    return new PDO($dsn, $username, $password, $options);
+
+    try {
+        return new PDO($dsn, $user, $pass, $options);
+    } catch (\PDOException $e) {
+        throw new \PDOException($e->getMessage(), (int)$e->getCode());
+    }
 }
-?>
+// NO CLOSING PHP TAG HERE (Prevents invisible spaces!)
