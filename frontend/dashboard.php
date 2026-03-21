@@ -48,8 +48,6 @@ $realResults = $stmt->fetchAll();
         .status-badge { padding: 5px 10px; border-radius: 20px; font-size: 0.9em; font-weight: bold; }
         .status-completed { background-color: #d4edda; color: #155724; }
         .status-pending { background-color: #fff3cd; color: #856404; }
-        .view-btn { background-color: #007bff; color: white; padding: 8px 15px; text-decoration: none; border-radius: 5px; font-size: 0.9em; }
-        .view-btn:hover { background-color: #0056b3; }
     </style>
 </head>
 <body>
@@ -96,11 +94,9 @@ $realResults = $stmt->fetchAll();
                     </td>
                     <td>
                         <?php if (!empty($result['result_pdf_key'])): ?>
-                            <a href="../backend/get_result.php?file=<?php echo urlencode($result['result_pdf_key']); ?>" class="view-btn" target="_blank">
-                                <i class="fa-solid fa-file-pdf"></i> View PDF
-                            </a>
+                            <a href="../backend/get_result.php?file=<?php echo urlencode($result['result_pdf_key']); ?>" target="_blank">View PDF</a>
                         <?php else: ?>
-                            <span style="color: #999;"><i>Pending</i></span>
+                            Pending
                         <?php endif; ?>
                     </td>
                 </tr>
