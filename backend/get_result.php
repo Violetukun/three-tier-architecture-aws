@@ -1,33 +1,41 @@
 <?php
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+error_reporting(E_ALL);
+
 require_once __DIR__ . '/vendor/autoload.php';
 require_once 'db_connection.php';
 require_once 's3_config.php';
 
-$pdo = getDatabaseConnection(); // <--- ADD IT HERE TOO!
-
+$pdo = getDatabaseConnection();
 use Aws\S3\S3Client;
 
-
-// 1. Connect to S3
 $s3Client = new S3Client([
     'region' => 'us-east-1',
     'version' => 'latest'
 ]);
 
-$bucket = 'your-diagnostic-results-bucket';
-$key = 'results/REF12345_lab_report.pdf'; // This filename should come from your RDS database
+$bucket = $S3_BUCKET; 
 
-// 2. Create a Pre-Signed URL (valid for 20 minutes)
-$cmd = $s3Client->getCommand('GetObject', [
-    'Bucket' => $bucket,
-    'Key'    => $key
-]);
+// Dynamic Listener
+if (!isset($_GET['file']) || empty($_GET['file'])) {
+    die("<h2>Error: No file specified in the URL.</h2>");
+}
+$key = $_GET['file']; 
 
-$request = $s3Client->createPresignedRequest($cmd, '+20 minutes');
+try {
+    $cmd = $s3Client->getCommand('GetObject', [
+        'Bucket' => $bucket,
+        'Key'    => $key
+    ]);
 
-// 3. Get the actual string URL
-$presignedUrl = (string)$request->getUri();
+    $request = $s3Client->createPresignedRequest($cmd, '+20 minutes');
+    $presignedUrl = (string)$request->getUri();
 
-// Now, in your HTML, you just use:
-// <a href="<?php echo $presignedUrl; ?>" class="btn">Download Results</a>
-?>
+    header("Location: " . $presignedUrl);
+    exit;
+
+} catch (Exception $e) {
+    echo "<h2>AWS Error:</h2><p>" . $e->getMessage() . "</p>";
+}
+// NO CLOSING PHP TAG HERE
