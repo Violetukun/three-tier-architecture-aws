@@ -1,14 +1,27 @@
+-- 1. Create the database and use it
 CREATE DATABASE IF NOT EXISTS diagnostic_center;
 USE diagnostic_center;
 
-CREATE TABLE patient_results (
+-- 2. Create the unified table for patient test records
+CREATE TABLE IF NOT EXISTS patient_results (
     id INT AUTO_INCREMENT PRIMARY KEY,
-    reference_number VARCHAR(50) NOT NULL UNIQUE,
+    reference_number VARCHAR(50) NOT NULL,
     last_name VARCHAR(100) NOT NULL,
+    test_name VARCHAR(100) NOT NULL,
+    exam_date DATE NOT NULL,
     result_status VARCHAR(50) DEFAULT 'Pending',
     result_pdf_key VARCHAR(255)
 );
 
--- Note: 'REF12345.pdf' assumes you uploaded the file directly to the main S3 bucket folder.
-INSERT INTO patient_results (reference_number, last_name, result_status, result_pdf_key) 
-VALUES ('REF12345', 'DELAPENA', 'Available', 'REF12345.pdf');
+-- 3. Insert mock data for our test patient (REF12345)
+-- First record: A completed CBC test with a PDF attached
+INSERT INTO patient_results (reference_number, last_name, test_name, exam_date, result_status, result_pdf_key) 
+VALUES ('REF12345', 'DELAPENA', 'Complete Blood Count (CBC)', '2026-10-24', 'Available', 'REF12345.pdf');
+
+-- Second record: A completed Fasting Blood Sugar test
+INSERT INTO patient_results (reference_number, last_name, test_name, exam_date, result_status, result_pdf_key) 
+VALUES ('REF12345', 'DELAPENA', 'Fasting Blood Sugar (FBS)', '2026-10-24', 'Available', 'REF12345_FBS.pdf');
+
+-- Third record: A pending Urinalysis test (Notice the PDF key is NULL)
+INSERT INTO patient_results (reference_number, last_name, test_name, exam_date, result_status, result_pdf_key) 
+VALUES ('REF12345', 'DELAPENA', 'Urinalysis', '2026-10-25', 'Pending', NULL);
