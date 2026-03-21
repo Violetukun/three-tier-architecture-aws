@@ -13,8 +13,8 @@ if (!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true) {
 }
 
 // 2. CONNECT TO THE DATABASE
-// Adjust this path if your db_connection.php is located elsewhere!
 require_once '../backend/db_connection.php'; 
+$pdo = getDatabaseConnection(); // <--- WE JUST NEED TO ADD THIS LINE!
 
 $patientName = $_SESSION['patient_name'];
 $patientRef = $_SESSION['patient_ref'];
