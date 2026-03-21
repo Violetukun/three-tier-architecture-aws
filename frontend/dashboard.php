@@ -2,24 +2,33 @@
 // 1. START SESSION & SECURITY CHECK
 session_start();
 
-// If the user is NOT logged in, redirect them to the login page
+// If the user is NOT logged in, redirect them
 if (!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true) {
     header("Location: online-results.html");
     exit();
 }
 
-// 2. GRAB USER DATA FROM SESSION
+// 2. CONNECT TO THE DATABASE
+// Adjust this path if your db_connection.php is located elsewhere!
+require_once '../backend/db_connection.php'; 
+
 $patientName = $_SESSION['patient_name'];
 $patientRef = $_SESSION['patient_ref'];
 
-// (Optional) In a real app, you would query the database here using $patientRef 
-// to get their actual test results. For now, we will use some mock data.
-$mockResults = [
-    ['test_name' => 'Complete Blood Count (CBC)', 'date' => 'Oct 24, 2026', 'status' => 'Completed'],
-    ['test_name' => 'Fasting Blood Sugar (FBS)', 'date' => 'Oct 24, 2026', 'status' => 'Completed'],
-    ['test_name' => 'Urinalysis', 'date' => 'Oct 24, 2026', 'status' => 'Pending']
-];
+// 3. THE MAGIC: FETCH REAL DATA FROM AWS RDS
+// We format the SQL date to match your "Oct 24, 2026" UI style
+$stmt = $pdo->prepare("
+    SELECT test_name, 
+           DATE_FORMAT(exam_date, '%b %d, %Y') AS formatted_date, 
+           result_status 
+    FROM patient_results 
+    WHERE reference_number = ?
+    ORDER BY exam_date DESC
+");
+$stmt->execute([$patientRef]);
+$realResults = $stmt->fetchAll(PDO::FETCH_ASSOC);
 ?>
+
 
 <!DOCTYPE html>
 <html lang="en">
@@ -73,8 +82,9 @@ $mockResults = [
         .status-completed { background-color: #e8f5e9; color: var(--success-green); }
         .status-pending { background-color: #fff3cd; color: #856404; }
         
-        .btn-download { background-color: var(--dark-gray); color: white; padding: 8px 12px; border-radius: 4px; font-size: 14px; transition: 0.2s; border: none; cursor: pointer;}
-        .btn-download:hover { background-color: #111; }
+        /* Added display: inline-block so the <a> tag looks like a button */
+        .btn-download { display: inline-block; background-color: var(--dark-gray); color: white; padding: 8px 12px; border-radius: 4px; font-size: 14px; transition: 0.2s; border: none; cursor: pointer;}
+        .btn-download:hover { background-color: #111; color: white; }
         .btn-download:disabled { background-color: #ccc; cursor: not-allowed; }
     </style>
 </head>
@@ -89,7 +99,7 @@ $mockResults = [
                 <strong><?php echo htmlspecialchars($patientName); ?></strong>
                 <span>Ref: <?php echo htmlspecialchars($patientRef); ?></span>
             </div>
-            <a href="logout.php" class="btn-logout"><i class="fa-solid fa-right-from-bracket"></i> Logout</a>
+            <a href="../backend/logout.php" class="btn-logout"><i class="fa-solid fa-right-from-bracket"></i> Logout</a>
         </div>
     </header>
 
@@ -116,26 +126,37 @@ $mockResults = [
                     </tr>
                 </thead>
                 <tbody>
-                    <?php foreach($mockResults as $result): ?>
-                    <tr>
-                        <td><strong><?php echo $result['test_name']; ?></strong></td>
-                        <td><?php echo $result['date']; ?></td>
-                        <td>
-                            <?php if($result['status'] == 'Completed'): ?>
-                                <span class="status-badge status-completed"><i class="fa-solid fa-check"></i> Completed</span>
-                            <?php else: ?>
-                                <span class="status-badge status-pending"><i class="fa-solid fa-clock"></i> Pending</span>
-                            <?php endif; ?>
-                        </td>
-                        <td>
-                            <?php if($result['status'] == 'Completed'): ?>
-                                <button class="btn-download"><i class="fa-solid fa-download"></i> View PDF</button>
-                            <?php else: ?>
-                                <button class="btn-download" disabled>Unavailable</button>
-                            <?php endif; ?>
-                        </td>
-                    </tr>
-                    <?php endforeach; ?>
+                    <?php if (empty($realResults)): ?>
+                        <tr>
+                            <td colspan="4" style="text-align: center; padding: 30px; color: #666;">
+                                <i class="fa-solid fa-folder-open" style="font-size: 24px; color: #ccc; margin-bottom: 10px;"></i><br>
+                                No laboratory results found for this reference number yet.
+                            </td>
+                        </tr>
+                    <?php else: ?>
+                        <?php foreach($realResults as $result): ?>
+                        <tr>
+                            <td><strong><?php echo htmlspecialchars($result['test_name']); ?></strong></td>
+                            <td><?php echo htmlspecialchars($result['formatted_date']); ?></td>
+                            <td>
+                                <?php if($result['result_status'] == 'Available'): ?>
+                                    <span class="status-badge status-completed"><i class="fa-solid fa-check"></i> Available</span>
+                                <?php else: ?>
+                                    <span class="status-badge status-pending"><i class="fa-solid fa-clock"></i> Pending</span>
+                                <?php endif; ?>
+                            </td>
+                            <td>
+                                <?php if($result['result_status'] == 'Available'): ?>
+                                    <a href="../backend/get_result.php?ref=<?php echo urlencode($patientRef); ?>" target="_blank" class="btn-download">
+                                        <i class="fa-solid fa-download"></i> View PDF
+                                    </a>
+                                <?php else: ?>
+                                    <button class="btn-download" disabled>Unavailable</button>
+                                <?php endif; ?>
+                            </td>
+                        </tr>
+                        <?php endforeach; ?>
+                    <?php endif; ?>
                 </tbody>
             </table>
         </div>
