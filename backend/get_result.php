@@ -1,6 +1,12 @@
 <?php
-require 'vendor/autoload.php'; // Loads the AWS SDK
+require_once __DIR__ . '/vendor/autoload.php';
+require_once 'db_connection.php';
+require_once 's3_config.php';
+
+$pdo = getDatabaseConnection(); // <--- ADD IT HERE TOO!
+
 use Aws\S3\S3Client;
+
 
 // 1. Connect to S3
 $s3Client = new S3Client([
