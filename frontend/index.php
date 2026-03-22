@@ -191,10 +191,10 @@ $teamMembers = [
     <header>
         <div class="container header-content">
             <div class="logo">
-                <img src="images/logo.png" onerror="this.src='https://placehold.co/300x80/ffffff/FFC107?text=Diagnostic+Logo'" alt="Company Logo">
+                <img src="images/logo.jpg" onerror="this.src='https://placehold.co/300x80/ffffff/FFC107?text=Diagnostic+Logo'" alt="Company Logo">
             </div>
             <div class="header-buttons">
-                <a href="online-results.php" class="btn btn-yellow">Online Results</a>
+                <a href="online-results.html" class="btn btn-yellow">Online Results</a>
             </div>
         </div>
     </header>
