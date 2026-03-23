@@ -1,28 +1,24 @@
-# Hello World Three-Tier Application
+# PREMA Hospital Diagnostic Web App Deployment
 
-This repository contains a simple "Hello World" application built using a three-tier architecture. The application demonstrates the fundamental concepts of separating frontend, backend, and database components in a web application.
-
+This repository contains the frontend and backend codebase for the PREMA Hospital Diagnostic Center. It is deployed on AWS using a highly available, secure, and scalable Three-Tier Cloud Architecture. The platform allows medical staff to securely upload patient PDF results to the cloud, and provides a secure portal for patients to view their records using temporary, presigned AWS links.
 ## Architecture Overview
 
-![alt text](aws-three-tier-architecture.png)
 
 The application follows the classic three-tier architecture:
 
 1. **Frontend Tier (Presentation Layer)**
-   - HTML/CSS/JavaScript
-   - Served by NGINX web servers
-   - Handles user interface and interactions
+   - PHP/HTML/CSS/JavaScript (Custom PREMA Theme)
+   - Served by Apache web servers on Amazon EC2
+   - Handles patient authentication, secure dashboard rendering, and the staff upload interface.
 
 2. **Backend Tier (Application Layer)**
-   - PHP API
-   - Processes business logic
-   - Communicates with database
-   - Serves data to frontend
+   - PHP with the AWS SDK (installed via Composer)
+   - Generates temporary, secure Presigned URLs for S3 file access.
+   - Streams uploaded PDFs directly into Amazon S3.
 
 3. **Database Tier (Data Layer)**
-   - MySQL database
-   - Stores application data
-   - Provides data persistence
+   - Amazon RDS (MySQL): Stores patient metadata, test statuses, and secure S3 file reference keys. Placed in heavily restricted private subnets.
+   - Amazon S3: Stores the physical PDF test results. Configured with strict IAM access and automated lifecycle policies.
 
 ## Features
 
@@ -45,102 +41,84 @@ When deployed on AWS, the infrastructure includes:
 ```
 three-tier-architecture-aws/
 ├── frontend/
-│   ├── index.html            # Main HTML file
-│   ├── styles.css            # CSS styles
+│   ├── index.php             # Main landing page
+│   ├── online-results.php    # Secure patient login portal
+│   ├── dashboard.php         # Patient records table and PDF viewer
+│   ├── admin.php             # Staff portal for uploading new results
+│   ├── logout.php            # Session destroyer
+│   └── images/
+│       └── logo.jpg          # PREMA branding
 │
 ├── backend/
-│   └── api/                  # API endpoints
-│       ├── get_messages.php  # API to retrieve messages
-│       ├── save_message.php  # API to save new messages
-│       └── db_connection.php # Database connection utility
+│   ├── login.php             # Database verifier and session starter
+│   ├── upload.php            # AWS S3 uploader and DB insert logic
+│   └── get_result.php        # AWS S3 Presigned URL generator
 │
-├── database/
-│   └── database_setup.sql    # SQL schema and initial data
-│
-└── infrastructure/           # AWS infrastructure configurations
-    ├── frontend_server.md     # Frontend server configurations
-    ├── backend_server.md     # Backend server configurations
-    ├── nginx_config     # Nginx server configurations
+└── README.md
 ```
 
-## Local Setup
+## Automated Deployment (Infrastructure as Code)
+Instead of manual clicking, this entire environment is deployed using a Zero-Touch Script.
 
 ### Prerequisites
-
-- Web server with PHP support (XAMPP, WAMP, MAMP, etc.)
-- MySQL database
+- An active AWS Account.
+- AWS CLI installed and configured with Administrator privileges.
 
 ### Steps
 
-1. Create VPC
-2. Create subnets
-    1. Web Public 1a, 1b, 1c
-    2. Web Private 1a, 1b, 1c
-    3. App Private 1a, 1b, 1c
-    4. Db Private 1a, 1b, 1c
-3. Create route tables
-    1. Web Public
-    2. Web Private 1a, 1b, 1c
-    3. App Private 1a, 1b, 1c
-    4. Db Private 1a, 1b, 1c
-4. Associate route tables with subnet
-5. Create internet Gateway (IGW)
-    1. Attach it to VPC
-6. Create NAT gateway (NATGW) in web public subnet
-7. Add IGW and NAT routes in route table
-    1. Public -> IGW
-    2. Private -> NAT
-8. Create security groups
-    1. Frontend ALB
-    2. Frontend Servers
-    3. Backend ALB
-    4. Backend Servers
-    5. Db Private Servers
-9. Create database subnet group
-10. Create database server
-11. Create Frontend ALB
-    1. Create Frontend ALB target group 
-12. Create Backend ALB
-    1. Create Backend ALB target group
-13. Create Frontend Server AMI
-    1. Install Nginx
-    2. Install Git
-14. Create Backend Server AMI
-    1. Install PHP, MySQL, Apache
-    2. Install Git
-    3. Run the database script
-15. Create the Launch Template for Frontend Server
-16. Create the Launch Template for Backend Server
-17. Create the Auto Scaling Group for Frontend Server
-18. Create the Auto Scaling Group for Backend Server
+This architecture can be deployed manually via the AWS Console or automatically using the provided Bash deployment script. 
 
-## Development
-
-### Frontend Development
-
-The frontend is built with plain HTML, CSS, and JavaScript. It uses the Fetch API to communicate with the backend.
-
-To make changes to the frontend:
-1. Modify the HTML/CSS/JavaScript files in the `frontend` directory
-2. Test the changes locally
-
-### Backend Development
-
-The PHP backend provides simple API endpoints for retrieving and saving messages.
-
-To make changes to the backend:
-1. Modify the PHP files in the `backend/api` directory
-2. Test the changes locally
+1. **Create VPC** (Virtual Private Cloud)
+2. **Create Subnets** (6 Total across 2 Availability Zones)
+    1. Public 1a, 1b (For Application Load Balancer & NAT Gateway)
+    2. Private Web 1a, 1b (For EC2 Apache/PHP Servers)
+    3. Private Database 1a, 1b (For RDS MySQL Database)
+3. **Create Route Tables**
+    1. Public Route Table
+    2. Private Route Table
+4. **Associate Route Tables** with their respective subnets
+5. **Create Internet Gateway (IGW)**
+    1. Attach it to the VPC
+6. **Create NAT Gateway** (in Public Subnet 1a)
+    1. Allocate and attach an Elastic IP
+7. **Add Network Routes** in Route Tables
+    1. Public Route Table -> IGW (0.0.0.0/0)
+    2. Private Route Table -> NAT Gateway (0.0.0.0/0)
+8. **Configure S3 & IAM Security**
+    1. Create S3 Bucket for patient PDF results
+    2. Apply S3 Lifecycle Rules (Archive to Glacier Deep Archive after 180 days)
+    3. Enable S3 Object Lock (WORM compliance for medical records)
+    4. Create IAM Role and EC2 Instance Profile for keyless S3 access
+9. **Configure AWS CloudTrail** (Audit Logging)
+    1. Create dedicated S3 Bucket for security logs
+    2. Create CloudTrail Trail and start logging all API activity
+10. **Create Security Groups** (Defense in Depth)
+    1. ALB Security Group (Allows Inbound HTTP 80 from 0.0.0.0/0)
+    2. App Server Security Group (Allows Inbound HTTP 80 *only* from ALB SG)
+    3. Database Security Group (Allows Inbound TCP 3306 *only* from App SG)
+11. **Provision Database**
+    1. Create DB Subnet Group
+    2. Provision RDS MySQL Instance (`db.t3.micro`)
+12. **Create Application Load Balancer (ALB)**
+    1. Create Target Group and enable **Sticky Sessions** (Cookie-based)
+    2. Provision ALB across Public Subnets 1a and 1b
+    3. Create HTTP Listener routing to the Target Group
+13. **Create Compute Resources**
+    1. Create EC2 Launch Template with automated User Data script:
+        - Installs Apache, PHP, and MySQL extensions
+        - Installs AWS SDK via Composer (with memory & headless boot fixes)
+        - Injects secure "Ghost Files" for database/S3 credentials
+        - Bootstraps MySQL schema and mock patient data
+    2. Create Auto Scaling Group (Min: 2, Max: 4) linked to the Launch Template
 
 ## Security Considerations
 
 This is a demo application and lacks several security features that would be necessary in a production environment:
 
-- Input validation and sanitization
-- Authentication and authorization
-- HTTPS encryption
-- Protection against SQL injection (although PDO with prepared statements is used)
-- CORS configuration
+- Network Isolation: Compute and Database tiers reside in private subnets with no inbound internet access.
+- Keyless Management: AWS Systems Manager (SSM) is used for server access instead of traditional SSH keys and open Port 22.
+- Audit Trails: CloudTrail is actively logging all infrastructure events to a secure, separate S3 bucket.
+
 
 ## License
 
@@ -148,4 +126,4 @@ This project is released under the MIT License.
 
 ## Acknowledgements
 
-This sample application was created as a demonstration of AWS three-tier architecture principles.
+This project prototype developed for academic purposes only.
