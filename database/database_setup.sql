@@ -13,15 +13,6 @@ CREATE TABLE IF NOT EXISTS patient_results (
     result_pdf_key VARCHAR(255)
 );
 
--- 3. Insert mock data for our test patient (REF12345)
--- First record: A completed CBC test with a PDF attached
+-- 3. Insert Mock Sample Record for testing
 INSERT INTO patient_results (reference_number, last_name, test_name, exam_date, result_status, result_pdf_key) 
 VALUES ('REF12345', 'DELAPENA', 'Complete Blood Count (CBC)', '2026-10-24', 'Available', 'REF12345.pdf');
-
--- Second record: A completed Fasting Blood Sugar test
-INSERT INTO patient_results (reference_number, last_name, test_name, exam_date, result_status, result_pdf_key) 
-VALUES ('REF12345', 'DELAPENA', 'Fasting Blood Sugar (FBS)', '2026-10-24', 'Available', 'REF12345_FBS.pdf');
-
--- Third record: A pending Urinalysis test (Notice the PDF key is NULL)
-INSERT INTO patient_results (reference_number, last_name, test_name, exam_date, result_status, result_pdf_key) 
-VALUES ('REF12345', 'DELAPENA', 'Urinalysis', '2026-10-25', 'Pending', NULL);
