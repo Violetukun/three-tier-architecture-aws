@@ -113,8 +113,6 @@ This architecture can be deployed manually via the AWS Console or automatically 
 
 ## Security Considerations
 
-This is a demo application and lacks several security features that would be necessary in a production environment:
-
 - Network Isolation: Compute and Database tiers reside in private subnets with no inbound internet access.
 - Keyless Management: AWS Systems Manager (SSM) is used for server access instead of traditional SSH keys and open Port 22.
 - Audit Trails: CloudTrail is actively logging all infrastructure events to a secure, separate S3 bucket.
