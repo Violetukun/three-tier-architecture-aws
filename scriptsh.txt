@@ -1,0 +1,183 @@
+#!/bin/bash
+echo "======================================================="
+echo "STARTING ZERO-TOUCH DIAGNOSTIC DEPLOYMENT (FINAL)"
+echo "======================================================="
+
+# 1. NETWORKING (VPC, Subnets, Gateways)
+echo "1. Building Network Infrastructure..."
+VPC_ID=$(aws ec2 create-vpc --cidr-block 10.0.0.0/16 --query 'Vpc.VpcId' --output text)
+aws ec2 modify-vpc-attribute --vpc-id $VPC_ID --enable-dns-hostnames
+aws ec2 create-tags --resources $VPC_ID --tags Key=Name,Value=Diagnostic-VPC
+
+PUB_1A=$(aws ec2 create-subnet --vpc-id $VPC_ID --cidr-block 10.0.0.0/20 --availability-zone us-east-1a --query 'Subnet.SubnetId' --output text)
+PUB_1B=$(aws ec2 create-subnet --vpc-id $VPC_ID --cidr-block 10.0.16.0/20 --availability-zone us-east-1b --query 'Subnet.SubnetId' --output text)
+PRIV_WEB_1A=$(aws ec2 create-subnet --vpc-id $VPC_ID --cidr-block 10.0.48.0/20 --availability-zone us-east-1a --query 'Subnet.SubnetId' --output text)
+PRIV_WEB_1B=$(aws ec2 create-subnet --vpc-id $VPC_ID --cidr-block 10.0.64.0/20 --availability-zone us-east-1b --query 'Subnet.SubnetId' --output text)
+PRIV_DB_1A=$(aws ec2 create-subnet --vpc-id $VPC_ID --cidr-block 10.0.144.0/20 --availability-zone us-east-1a --query 'Subnet.SubnetId' --output text)
+PRIV_DB_1B=$(aws ec2 create-subnet --vpc-id $VPC_ID --cidr-block 10.0.160.0/20 --availability-zone us-east-1b --query 'Subnet.SubnetId' --output text)
+
+IGW_ID=$(aws ec2 create-internet-gateway --query 'InternetGateway.InternetGatewayId' --output text)
+aws ec2 attach-internet-gateway --vpc-id $VPC_ID --internet-gateway-id $IGW_ID
+
+RT_PUB=$(aws ec2 create-route-table --vpc-id $VPC_ID --query 'RouteTable.RouteTableId' --output text)
+aws ec2 create-route --route-table-id $RT_PUB --destination-cidr-block 0.0.0.0/0 --gateway-id $IGW_ID
+aws ec2 associate-route-table --subnet-id $PUB_1A --route-table-id $RT_PUB
+aws ec2 associate-route-table --subnet-id $PUB_1B --route-table-id $RT_PUB
+
+EIP=$(aws ec2 allocate-address --domain vpc --query 'AllocationId' --output text)
+NAT_ID=$(aws ec2 create-nat-gateway --subnet-id $PUB_1A --allocation-id $EIP --query 'NatGateway.NatGatewayId' --output text)
+
+echo "Waiting for NAT Gateway to go live (Takes ~2 mins)..."
+aws ec2 wait nat-gateway-available --nat-gateway-ids $NAT_ID
+
+RT_PRIV=$(aws ec2 create-route-table --vpc-id $VPC_ID --query 'RouteTable.RouteTableId' --output text)
+aws ec2 create-route --route-table-id $RT_PRIV --destination-cidr-block 0.0.0.0/0 --nat-gateway-id $NAT_ID
+aws ec2 associate-route-table --subnet-id $PRIV_WEB_1A --route-table-id $RT_PRIV
+aws ec2 associate-route-table --subnet-id $PRIV_WEB_1B --route-table-id $RT_PRIV
+
+# 2. S3 STORAGE, LIFECYCLE, & IAM PERMISSIONS
+echo "2. Configuring S3, Glacier Auto-Archive, and IAM Roles..."
+BUCKET_NAME="diagnostic-results-$(date +%s)"
+aws s3 mb s3://$BUCKET_NAME
+
+# S3 Glacier Deep Archive Rule (Saves 95% on storage costs)
+cat << LFC_EOF > lifecycle.json
+{
+  "Rules": [
+    {
+      "ID": "ArchiveToGlacierDeepArchiveAfter180Days",
+      "Filter": {
+        "Prefix": ""
+      },
+      "Status": "Enabled",
+      "Transitions": [
+        {
+          "Days": 180,
+          "StorageClass": "DEEP_ARCHIVE"
+        }
+      ]
+    }
+  ]
+}
+LFC_EOF
+aws s3api put-bucket-lifecycle-configuration --bucket $BUCKET_NAME --lifecycle-configuration file://lifecycle.json
+rm lifecycle.json
+
+aws iam create-role --role-name DiagnosticFinalRole --assume-role-policy-document '{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Principal":{"Service":"ec2.amazonaws.com"},"Action":"sts:AssumeRole"}]}' 2>/dev/null
+aws iam attach-role-policy --role-name DiagnosticFinalRole --policy-arn arn:aws:iam::aws:policy/AmazonS3FullAccess
+aws iam attach-role-policy --role-name DiagnosticFinalRole --policy-arn arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+aws iam create-instance-profile --instance-profile-name DiagFinalProfile 2>/dev/null
+aws iam add-role-to-instance-profile --instance-profile-name DiagFinalProfile --role-name DiagnosticFinalRole 2>/dev/null
+
+echo "Waiting 20 seconds for IAM permissions to sync across AWS..."
+sleep 20
+
+# 3. SECURITY GROUPS
+echo "3. Creating Security Groups..."
+SG_ALB=$(aws ec2 create-security-group --group-name alb-sg-prod --description "ALB" --vpc-id $VPC_ID --query 'GroupId' --output text)
+aws ec2 authorize-security-group-ingress --group-id $SG_ALB --protocol tcp --port 80 --cidr 0.0.0.0/0
+SG_APP=$(aws ec2 create-security-group --group-name app-sg-prod --description "Web" --vpc-id $VPC_ID --query 'GroupId' --output text)
+aws ec2 authorize-security-group-ingress --group-id $SG_APP --protocol tcp --port 80 --source-group $SG_ALB
+SG_DB=$(aws ec2 create-security-group --group-name db-sg-prod --description "DB" --vpc-id $VPC_ID --query 'GroupId' --output text)
+aws ec2 authorize-security-group-ingress --group-id $SG_DB --protocol tcp --port 3306 --source-group $SG_APP
+
+# 4. DATABASE
+echo "4. Provisioning RDS Database..."
+aws rds create-db-subnet-group --db-subnet-group-name diag-db-subs --db-subnet-group-description "DB" --subnet-ids $PRIV_DB_1A $PRIV_DB_1B
+aws rds create-db-instance \
+    --db-instance-identifier diag-db-prod \
+    --db-name diagnostic_center \
+    --db-instance-class db.t3.micro \
+    --engine mysql \
+    --master-username admin \
+    --master-user-password "Diagnostic123!" \
+    --vpc-security-group-ids $SG_DB \
+    --db-subnet-group-name diag-db-subs \
+    --allocated-storage 20 \
+    --no-publicly-accessible
+
+echo "Waiting for RDS Database (Takes ~5-10 mins)..."
+aws rds wait db-instance-available --db-instance-identifier diag-db-prod
+RDS_ENDPOINT=$(aws rds describe-db-instances --db-instance-identifier diag-db-prod --query 'DBInstances[0].Endpoint.Address' --output text)
+
+# 5. LOAD BALANCER
+echo "5. Creating Load Balancer..."
+TG_ARN=$(aws elbv2 create-target-group --name tg-diag-prod --protocol HTTP --port 80 --vpc-id $VPC_ID --health-check-path "/frontend/index.php" --query 'TargetGroups[0].TargetGroupArn' --output text)
+
+aws elbv2 modify-target-group-attributes --target-group-arn $TG_ARN --attributes Key=stickiness.enabled,Value=true Key=stickiness.type,Value=lb_cookie
+
+ALB_ARN=$(aws elbv2 create-load-balancer --name alb-diag-prod --subnets $PUB_1A $PUB_1B --security-groups $SG_ALB --query 'LoadBalancers[0].LoadBalancerArn' --output text)
+aws elbv2 create-listener --load-balancer-arn $ALB_ARN --protocol HTTP --port 80 --default-actions Type=forward,TargetGroupArn=$TG_ARN
+
+# 6. COMPUTE (THE BRAINS)
+echo "6. Launching Web Servers..."
+cat << EOF > setup.sh
+#!/bin/bash
+dnf update -y
+# Added php-mbstring and php-xml to ensure Composer doesn't crash
+dnf install -y httpd php php-mysqli php-pdo mariadb105 git unzip php-mbstring php-xml
+systemctl start httpd
+systemctl enable httpd
+
+# Get Code from GitHub
+cd /var/www/html
+git clone https://github.com/Violetukun/three-tier-architecture-aws.git .
+
+# Install AWS SDK (WITH HOME ENVIRONMENT & MEMORY FIX)
+cd backend
+export COMPOSER_HOME=/root
+curl -sS https://getcomposer.org/installer | php
+COMPOSER_ALLOW_SUPERUSER=1 php -d memory_limit=-1 composer.phar require aws/aws-sdk-php
+chown -R apache:apache vendor/
+
+# Inject the Ghost Files
+echo "<?php \\\$DB_HOST = '$RDS_ENDPOINT'; \\\$DB_USER = 'admin'; \\\$DB_PASS = 'Diagnostic123!'; ?>" > /var/www/html/backend/db_credentials.php
+echo "<?php \\\$S3_BUCKET = '$BUCKET_NAME'; ?>" > /var/www/html/backend/s3_config.php
+
+# Inject the perfect schema
+cat << 'SQL_EOF' > /var/www/html/db_schema.sql
+CREATE DATABASE IF NOT EXISTS diagnostic_center;
+USE diagnostic_center;
+CREATE TABLE IF NOT EXISTS patient_results (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    reference_number VARCHAR(50) NOT NULL,
+    last_name VARCHAR(100) NOT NULL,
+    test_name VARCHAR(100) NOT NULL,
+    exam_date DATE NOT NULL,
+    result_status VARCHAR(50) DEFAULT 'Pending',
+    result_pdf_key VARCHAR(255)
+);
+SQL_EOF
+
+# Inject mock data
+cat << 'MOCK_DATA_EOF' > /var/www/html/db_data.sql
+USE diagnostic_center;
+INSERT INTO patient_results (reference_number, last_name, test_name, exam_date, result_status, result_pdf_key)
+SELECT 'REF12345', 'DELAPENA', 'Complete Blood Count (CBC)', '2026-10-24', 'Available', 'REF12345.pdf'
+WHERE NOT EXISTS (SELECT 1 FROM patient_results WHERE reference_number = 'REF12345' AND test_name = 'Complete Blood Count (CBC)');
+MOCK_DATA_EOF
+
+# Run the SQL scripts
+mysql -h $RDS_ENDPOINT -u admin -pDiagnostic123! diagnostic_center < /var/www/html/db_schema.sql
+mysql -h $RDS_ENDPOINT -u admin -pDiagnostic123! diagnostic_center < /var/www/html/db_data.sql
+
+# Clean up
+rm /var/www/html/db_schema.sql
+rm /var/www/html/db_data.sql
+chown -R apache:apache /var/www/html
+chmod -R 755 /var/www/html
+EOF
+
+USER_DATA=$(base64 -w 0 setup.sh)
+
+aws ec2 create-launch-template --launch-template-name lt-diag-prod --launch-template-data "{\"ImageId\":\"ami-0c101f26f147fa7fd\",\"InstanceType\":\"t3.micro\",\"SecurityGroupIds\":[\"$SG_APP\"],\"UserData\":\"$USER_DATA\",\"IamInstanceProfile\":{\"Name\":\"DiagFinalProfile\"}}"
+aws autoscaling create-auto-scaling-group --auto-scaling-group-name asg-diag-prod --launch-template LaunchTemplateName=lt-diag-prod --min-size 2 --max-size 4 --vpc-zone-identifier "$PRIV_WEB_1A,$PRIV_WEB_1B" --target-group-arns $TG_ARN
+
+ALB_DNS=$(aws elbv2 describe-load-balancers --load-balancer-arns $ALB_ARN --query 'LoadBalancers[0].DNSName' --output text)
+
+echo "======================================================="
+echo "DEPLOYMENT COMPLETE!"
+echo "Login Portal: http://$ALB_DNS/frontend/index.php"
+echo "Admin Portal: http://$ALB_DNS/frontend/admin.php"
+echo "S3 Bucket Created: $BUCKET_NAME"
+echo "======================================================="
